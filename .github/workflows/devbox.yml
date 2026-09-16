@@ -1,0 +1,114 @@
+name: Build Devbox
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'devbox/**'
+      - '.github/workflows/devbox.yml'
+  workflow_dispatch:
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/devbox
+
+jobs:
+  # Native per-arch runners instead of QEMU; manifest job below merges the digests.
+  build:
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            platform: linux/amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: devbox
+          file: devbox/Dockerfile
+          platforms: ${{ matrix.platform }}
+          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v7
+        with:
+          name: digests-${{ matrix.arch }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  manifest:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v8
+        with:
+          path: /tmp/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create and push :latest manifest list
+        working-directory: /tmp/digests
+        run: |
+          docker buildx imagetools create \
+            -t ${{ env.IMAGE }}:latest \
+            $(printf '${{ env.IMAGE }}@sha256:%s ' *)
+
+      - name: Read installed pi/agy versions from the image
+        id: versions
+        run: |
+          docker pull ${{ env.IMAGE }}:latest
+          pi_version=$(docker run --rm ${{ env.IMAGE }}:latest pi --version)
+          agy_version=$(docker run --rm ${{ env.IMAGE }}:latest agy --version)
+          echo "pi=${pi_version}" >> "$GITHUB_OUTPUT"
+          echo "agy=${agy_version}" >> "$GITHUB_OUTPUT"
+
+      - name: Alias :latest as the version-tagged manifest
+        run: |
+          docker buildx imagetools create \
+            -t ${{ env.IMAGE }}:pi${{ steps.versions.outputs.pi }}-agy${{ steps.versions.outputs.agy }} \
+            ${{ env.IMAGE }}:latest
+
+      - name: Inspect pushed manifest
+        run: docker buildx imagetools inspect ${{ env.IMAGE }}:latest

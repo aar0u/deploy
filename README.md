@@ -1,18 +1,12 @@
-# caddy-l4-docker
+# deploy
 
-A minimal Docker setup for running [Caddy L4](https://github.com/mholt/caddy-l4).
+Docker image definitions built and published via GitHub Actions to `ghcr.io`.
 
-## Usage
+## Projects
 
-1. Clone this repository.
-2. Build the Docker image:
-	```sh
-	docker build -t caddy-l4 .
-	```
-3. Run the container:
-	```sh
-	docker run --rm -p 443:443 caddy-l4
-	```
+- [caddy-l4/](caddy-l4/) — minimal Caddy build with the [caddy-l4](https://github.com/mholt/caddy-l4) plugin, published as `ghcr.io/<owner>/caddy-l4`.
+- [devbox/](devbox/) — persistent dev-container image (Node, common CLIs, non-root `developer` user) used as an agent/CI workspace base, published as `ghcr.io/<owner>/devbox`.
 
-## Reference
-- [Caddy L4 GitHub](https://github.com/mholt/caddy-l4)
+Each subdirectory has its own README with build/usage details. CI workflows live in [.github/workflows/](.github/workflows/), one per project, each triggered only by changes under its own directory:
+- `caddy-l4.yml` builds `caddy-l4`.
+- `devbox.yml` builds `devbox`.
