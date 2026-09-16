@@ -112,3 +112,15 @@ jobs:
 
       - name: Inspect pushed manifest
         run: docker buildx imagetools inspect ${{ env.IMAGE }}:latest
+
+  cleanup:
+    needs: manifest
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    steps:
+      - name: Delete untagged package versions
+        uses: dataaxiom/ghcr-cleanup-action@v1
+        with:
+          package: devbox
+          delete-untagged: true
