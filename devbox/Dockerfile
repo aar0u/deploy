@@ -20,6 +20,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     fd-find \
     zoxide \
     vim \
+    less \
     tmux \
     python3 \
     openssh-client \
