@@ -36,16 +36,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # fzf, always latest (Debian's apt package predates the --bash/--zsh integration flags _.zshrc relies on)
+# The tag comes from the /releases/latest redirect, not the API, which rate-limits shared CI runners.
 RUN arch=$(dpkg --print-architecture) \
-    && curl -fsSL "$(curl -fsSL https://api.github.com/repos/junegunn/fzf/releases/latest | jq -r --arg arch "linux_$arch" '.assets[] | select(.name | test("^fzf-.*-" + $arch + ".tar.gz$")) | .browser_download_url')" \
-    | tar -xz -C /usr/local/bin fzf
+    && tag=$(curl -fsSIL -o /dev/null -w '%{url_effective}' https://github.com/junegunn/fzf/releases/latest) \
+    && tag=${tag##*/} \
+    && curl -fsSL -o /tmp/fzf.tar.gz "https://github.com/junegunn/fzf/releases/download/$tag/fzf-${tag#v}-linux_$arch.tar.gz" \
+    && tar -xzf /tmp/fzf.tar.gz -C /usr/local/bin fzf \
+    && rm /tmp/fzf.tar.gz
 
 # starship prompt (avoids the git-prompt.sh fallback path in _.zshrc, which Debian's git package doesn't ship)
 RUN curl -fsSL https://starship.rs/install.sh | sh -s -- --yes
 
 # sops, always latest (no apt package)
 RUN arch=$(dpkg --print-architecture) \
-    && curl -fsSL -o /usr/local/bin/sops "$(curl -fsSL https://api.github.com/repos/getsops/sops/releases/latest | jq -r --arg arch "linux.$arch" '.assets[] | select(.name | test("^sops-v.*\\." + $arch + "$")) | .browser_download_url')" \
+    && tag=$(curl -fsSIL -o /dev/null -w '%{url_effective}' https://github.com/getsops/sops/releases/latest) \
+    && tag=${tag##*/} \
+    && curl -fsSL -o /usr/local/bin/sops "https://github.com/getsops/sops/releases/download/$tag/sops-$tag.linux.$arch" \
     && chmod +x /usr/local/bin/sops
 
 # User-owned global package directories so the runtime user can install/update CLI packages.
@@ -55,11 +61,10 @@ ENV PATH=$PNPM_HOME/bin:$PNPM_HOME:$NPM_CONFIG_PREFIX/bin:$PATH
 RUN mkdir -p "$PNPM_HOME" "$NPM_CONFIG_PREFIX" \
     && chown -R ${DEVBOX_USER}:${DEVBOX_USER} /home/${DEVBOX_USER}/.local /home/${DEVBOX_USER}/.npm-global
 
-# Corepack shims are installed system-wide; the pnpm store/home remains user-owned.
-RUN corepack enable && corepack prepare pnpm@12.4.2 --activate
-
+# pnpm standalone installer (Node 25+ no longer ships corepack), into the user-owned PNPM_HOME.
 # pi CLI (https://pi.dev), installed in the runtime user's npm prefix for runtime updates.
 USER ${DEVBOX_USER}
+RUN curl -fsSL https://get.pnpm.io/install.sh | env PNPM_VERSION=12.4.2 SHELL=/bin/bash sh -
 RUN npm install -g --ignore-scripts @earendil-works/pi-coding-agent
 USER root
 

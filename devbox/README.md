@@ -1,6 +1,6 @@
 # devbox
 
-A persistent dev-container image used as a workspace base for agents/CI: Node 22 (package manager: pnpm, via corepack), common CLI tools (git, ripgrep, fd, python3, uv, jq, ssh), the base image's non-root `node` user (UID 1000) granted passwordless sudo, and AI coding agent CLIs preinstalled: [pi](https://pi.dev/) `pi`, [Claude Code](https://claude.com/claude-code) `claude` and [antigravity](https://antigravity.google/) `agy`.
+A persistent dev-container image used as a workspace base for agents/CI: Node 22 (package manager: pnpm, via its standalone installer), common CLI tools (git, ripgrep, fd, python3, uv, jq, ssh), the base image's non-root `node` user (UID 1000) granted passwordless sudo, and AI coding agent CLIs preinstalled: [pi](https://pi.dev/) `pi`, [Claude Code](https://claude.com/claude-code) `claude` and [antigravity](https://antigravity.google/) `agy`.
 
 The container has no entrypoint logic of its own — it just stays alive (`sleep infinity`) so something else (an agent runtime, a CI job, a devcontainer) can exec into it.
 
