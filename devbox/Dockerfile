@@ -62,10 +62,8 @@ RUN mkdir -p "$PNPM_HOME" "$NPM_CONFIG_PREFIX" \
     && chown -R ${DEVBOX_USER}:${DEVBOX_USER} /home/${DEVBOX_USER}/.local /home/${DEVBOX_USER}/.npm-global
 
 # pnpm standalone installer (Node 25+ no longer ships corepack), into the user-owned PNPM_HOME.
-# pi CLI (https://pi.dev), installed in the runtime user's npm prefix for runtime updates.
 USER ${DEVBOX_USER}
 RUN curl -fsSL https://get.pnpm.io/install.sh | env PNPM_VERSION=12.4.2 SHELL=/bin/bash sh -
-RUN npm install -g --ignore-scripts @earendil-works/pi-coding-agent
 USER root
 
 # Claude Code CLI, native installer (npm package is deprecated since v2.1.15).
@@ -74,6 +72,12 @@ USER ${DEVBOX_USER}
 RUN curl -fsSL https://claude.ai/install.sh | bash
 USER root
 RUN ln -sf /home/${DEVBOX_USER}/.local/bin/claude /usr/local/bin/claude
+
+# OpenCode CLI, native installer into the runtime user's ~/.opencode/bin so `opencode upgrade` can self-update.
+USER ${DEVBOX_USER}
+RUN curl -fsSL https://opencode.ai/v2/install | bash
+USER root
+RUN ln -sf /home/${DEVBOX_USER}/.opencode/bin/opencode /usr/local/bin/opencode
 
 # agy CLI, always latest (installer has no version pin)
 RUN curl -fsSL https://antigravity.google/cli/install.sh | bash \
@@ -90,7 +94,7 @@ RUN printf '%s ALL=(ALL) NOPASSWD:ALL\n' "$DEVBOX_USER" > /etc/sudoers.d/${DEVBO
     && chmod 0440 /etc/sudoers.d/${DEVBOX_USER}
 
 # Pre-create state directories so bind mounts retain a runtime-user-owned parent.
-RUN mkdir -p /home/${DEVBOX_USER}/.gemini /home/${DEVBOX_USER}/.pi/agent /home/${DEVBOX_USER}/.claude \
+RUN mkdir -p /home/${DEVBOX_USER}/.gemini /home/${DEVBOX_USER}/.claude \
         /run/user/$(id -u ${DEVBOX_USER}) \
     && chown -R ${DEVBOX_USER}:${DEVBOX_USER} /home/${DEVBOX_USER} /run/user/$(id -u ${DEVBOX_USER})
 

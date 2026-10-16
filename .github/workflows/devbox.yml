@@ -95,19 +95,18 @@ jobs:
             -t ${{ env.IMAGE }}:latest \
             $(printf '${{ env.IMAGE }}@sha256:%s ' *)
 
-      - name: Read installed pi/agy versions from the image
+      - name: Read installed OpenCode version from the image
         id: versions
         run: |
           docker pull ${{ env.IMAGE }}:latest
-          pi_version=$(docker run --rm ${{ env.IMAGE }}:latest pi --version)
-          agy_version=$(docker run --rm ${{ env.IMAGE }}:latest agy --version)
-          echo "pi=${pi_version}" >> "$GITHUB_OUTPUT"
-          echo "agy=${agy_version}" >> "$GITHUB_OUTPUT"
+          # OpenCode 2 prints "opencode v2.0.31"; a tag can hold neither the space nor the prefix.
+          opencode_version=$(docker run --rm ${{ env.IMAGE }}:latest opencode --version | awk '{print $NF}')
+          echo "opencode=${opencode_version#v}" >> "$GITHUB_OUTPUT"
 
       - name: Alias :latest as the version-tagged manifest
         run: |
           docker buildx imagetools create \
-            -t ${{ env.IMAGE }}:pi${{ steps.versions.outputs.pi }}-agy${{ steps.versions.outputs.agy }} \
+            -t ${{ env.IMAGE }}:opencode${{ steps.versions.outputs.opencode }} \
             ${{ env.IMAGE }}:latest
 
       - name: Inspect pushed manifest
