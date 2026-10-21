@@ -11,6 +11,7 @@ ENV SHELL=/bin/bash
 
 # Install basic development tools and CLI utilities
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    adb \
     ca-certificates \
     curl \
     git \
@@ -26,6 +27,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     openssh-client \
     jq \
     tzdata \
+    ffmpeg \
     # Audio & media tools for recording/playback and Wayland clipboard via dx socket passthrough
     pulseaudio-utils \
     sox \
