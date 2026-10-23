@@ -91,6 +91,12 @@ RUN curl -fsSL https://antigravity.google/cli/install.sh | bash \
 # uv (Python package/venv manager), always latest
 RUN curl -fsSL https://astral.sh/uv/install.sh | UV_INSTALL_DIR=/usr/local/bin sh
 
+# Ghostty's xterm-ghostty terminfo entry. Debian 12's ncurses predates it and Debian 13 ships it only as "ghostty",
+# so without this, tmux in a session from Ghostty fails with "missing or unsuitable terminal".
+# Refresh the file with: infocmp -x xterm-ghostty > devbox/xterm-ghostty.terminfo
+COPY xterm-ghostty.terminfo /tmp/xterm-ghostty.terminfo
+RUN tic -x -o /usr/share/terminfo /tmp/xterm-ghostty.terminfo && rm /tmp/xterm-ghostty.terminfo
+
 # Grant the runtime user passwordless sudo.
 RUN printf '%s ALL=(ALL) NOPASSWD:ALL\n' "$DEVBOX_USER" > /etc/sudoers.d/${DEVBOX_USER} \
     && chmod 0440 /etc/sudoers.d/${DEVBOX_USER}
