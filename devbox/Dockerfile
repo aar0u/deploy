@@ -11,9 +11,12 @@ ENV SHELL=/bin/bash
 
 # Install basic development tools and CLI utilities
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    adb \
     ca-certificates \
     curl \
+    unzip \
+    xz-utils \
+    lsof \
+    iputils-ping \
     git \
     procps \
     sudo \
@@ -36,6 +39,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && ln -sf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone \
     && ln -sf $(which fdfind) /usr/local/bin/fd \
     && rm -rf /var/lib/apt/lists/*
+
+# adb from Google's platform-tools: Debian's package is 29.0.6, which has no `adb pair` (added in 30).
+# Google only ships x86_64 Linux builds, so other architectures fall back to the apt package.
+RUN arch=$(dpkg --print-architecture) \
+    && if [ "$arch" = amd64 ]; then \
+        curl -fsSL -o /tmp/platform-tools.zip https://dl.google.com/android/repository/platform-tools-latest-linux.zip \
+        && unzip -q /tmp/platform-tools.zip -d /opt \
+        && ln -sf /opt/platform-tools/adb /usr/local/bin/adb \
+        && rm /tmp/platform-tools.zip; \
+    else \
+        apt-get update && apt-get install -y --no-install-recommends adb && rm -rf /var/lib/apt/lists/*; \
+    fi
 
 # fzf, always latest (Debian's apt package predates the --bash/--zsh integration flags _.zshrc relies on)
 # The tag comes from the /releases/latest redirect, not the API, which rate-limits shared CI runners.
@@ -91,12 +106,17 @@ RUN curl -fsSL https://antigravity.google/cli/install.sh | bash \
 # uv (Python package/venv manager), always latest
 RUN curl -fsSL https://astral.sh/uv/install.sh | UV_INSTALL_DIR=/usr/local/bin sh
 
+# kitty's xterm-kitty terminfo entry. Debian does not ship it, so without this, tmux in a session from kitty
+# fails with "missing or unsuitable terminal". Same source as `infocmp -x xterm-kitty`; bump the tag to refresh.
+RUN curl -fsSL https://raw.githubusercontent.com/kovidgoyal/kitty/v0.43.0/terminfo/kitty.terminfo \
+    | tic -x -o /usr/share/terminfo -
+
 # Grant the runtime user passwordless sudo.
 RUN printf '%s ALL=(ALL) NOPASSWD:ALL\n' "$DEVBOX_USER" > /etc/sudoers.d/${DEVBOX_USER} \
     && chmod 0440 /etc/sudoers.d/${DEVBOX_USER}
 
 # Pre-create state directories so bind mounts retain a runtime-user-owned parent.
-RUN mkdir -p /home/${DEVBOX_USER}/.gemini /home/${DEVBOX_USER}/.claude \
+RUN mkdir -p /home/${DEVBOX_USER}/.gemini /home/${DEVBOX_USER}/.claude /home/${DEVBOX_USER}/.agents \
         /run/user/$(id -u ${DEVBOX_USER}) \
     && chown -R ${DEVBOX_USER}:${DEVBOX_USER} /home/${DEVBOX_USER} /run/user/$(id -u ${DEVBOX_USER})
 
